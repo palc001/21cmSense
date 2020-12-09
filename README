@@ -23,6 +23,8 @@ python plot_sense.py [*.npz]
 Image of the calculated sensitivity and saves a .csv file for the same.
 ([*.npz] is name of earlier generated array file from calc_sense.py)
 
+Please direct any Questions, comments, or feedback about the edits to pallav16 <at> iiserb <dot> ac <dot> in.
+
 ===============================================================================
 
 Dependencies:
@@ -37,6 +39,7 @@ healpy (Tested on v1.13.0)
 ===============================================================================
 
 There are two main code pieces: mk_array_file.py and calc_sense.py.  The array files produced by mk_array_file are the inputs to calc_sense.py.  The inputs to mk_array_file.py are calibration files, which are also python scripts, but not executable.  Each of these components will be described in turn.
+
 
 calibration files:
 
@@ -55,10 +58,19 @@ fast_mk_array_file.py:
 
 Implements 3-D arrays for storing data and also a few function definitions in mk_array_file.py so as to speed up the code by as much as 10-12% while consuming 4-6 times the memory. The user can choose to use it depending on machine configuration.
 
+
 calc_sense.py:
 
 This is the main portion of the package.  To run with defaults, it should only need an array file as input.  Through the command line, the user can change the foreground avoidance/subtraction model, the observing frequency, the epoch of reionization model (which is required to calculate sample variance), and the total observing time.   A redshift 9.5 ~50% ionization model produced by 21cmFAST has been included.  The code can natively handle any power spectrum output from 21cmFAST, but should be easily modifiable to include other models.  Since the calculated sensitivities are for a single frequency, one should change the observing frequency if one uses a power spectrum from a redshift other than the default (z = 9.5).  Changing more detailed parameters, like the sky temperature model, will require editing of the code itself.  The code also now contains the opts.no_ns option, which excludes the u = 0 column of the uv plane; this effectively removes north/south oriented baselines from the sensitivity ccalculation, which can be corrupted by systematics due to their low fringe rate.
 [Edits by Pallav Chanda: Changed system, antenna temperature model and minor changes.]
+
+
+calc_sense_mcquinn.py
+[Added by Pallav Chanda]
+
+This code modifies calc_sense.py to implement formulae from McQuinn (2008).
+KNOWN ISSUES:
+modified_calc_sense.py: gives error for Signal to Noise Ratio (SNR) calculation.  But that happens after the .npz file is saved.  (Yet to fix.)  Typically SNR comes around 3.9 with this modified code with default values and no specified options.
 
 
 plot_sense.py:
