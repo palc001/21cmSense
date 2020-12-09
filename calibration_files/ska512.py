@@ -58,7 +58,7 @@ z = []
 antpos = [] #initialize arrays
 
 # 512 SKA antenna (station) positions are given here in ECEF coordinate frame (Earth center earth fixed). 
-with open('antpos_for_other_arrays/ska_antpos.csv') as f:
+with open('calibration_files/antpos_for_other_arrays/ska_antpos.csv') as f:
     csvreader = csv.reader(f)
     for row in csvreader:
 	x.append(row[0])

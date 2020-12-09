@@ -57,7 +57,7 @@ y = []
 z = []
 antpos = [] #initialize arrays
 
-with open('antpos_for_other_arrays/mwa_compact_antpos.csv') as f:
+with open('calibration_files/antpos_for_other_arrays/mwa_compact_antpos.csv') as f:
     csvreader = csv.reader(f)
     for row in csvreader:
 	x.append(row[4])

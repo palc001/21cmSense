@@ -18,6 +18,9 @@ o.add_option('-f', '--freq', dest='freq', default=0.135, type=float,
     help="The central frequency of the observation in GHz.  Default is 0.135 GHz, corresponding to z = 9.5, which matches the default model power spectrum used in calc_sense.py.")
 opts, args = o.parse_args(sys.argv[1:])
 
+# insert folder path for calibration files 
+sys.path.append('calibration_files/')
+
 #============================SIMPLE GRIDDING FUNCTION=======================
 
 def beamgridder(xcen,ycen,size):
@@ -40,10 +43,10 @@ nants = len(aa)
 prms = aa.get_arr_params()
 if opts.track:
     obs_duration=60.*opts.track
-    name = prms['name']+'track_%.1fhr' % opts.track
+    name = prms['name']+'_track_%.1fhr' % opts.track
 else:
     obs_duration = prms['obs_duration']*(0.15/opts.freq) #scales observing time linearly with frequency to account for change in beam FWHM
-    name = prms['name']+'drift'; print name
+    name = prms['name']+'_drift'; print name
 dish_size_in_lambda = prms['dish_size_in_lambda']
 
 #==========================FIDUCIAL OBSERVATION PARAMETERS===================
