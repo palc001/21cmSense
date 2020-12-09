@@ -46,10 +46,10 @@ nants = len(aa)
 prms = aa.get_arr_params()
 if opts.track:
     obs_duration=60.*opts.track
-    name = prms['name']+'track_%.1fhr' % opts.track
+    name = prms['name']+'_track_%.1fhr' % opts.track
 else:
     obs_duration = prms['obs_duration']*(0.15/opts.freq) #scales observing time linearly with frequency to account for change in beam FWHM
-    name = prms['name']+'drift'; print name
+    name = prms['name']+'_drift'; print name
 dish_size_in_lambda = prms['dish_size_in_lambda']
 print obs_duration
 
