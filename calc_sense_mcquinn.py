@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+ #! /usr/bin/env python
 '''
 Calculates the expected sensitivity of a 21cm experiment to a given 21cm power spectrum.  Requires as input an array .npz file created with mk_array_file.py.
 '''
@@ -33,12 +33,12 @@ def f2z(fq):
     F21 = 1.42040575177
     return (F21 / fq - 1)
 
-#Multiply by this to convert an angle on the sky to a transverse distance in Mpc/h at redshift z
+#Multiply by this to convert an angle on the sky to a transverse distance in Mpc/h at redshift z (basically the factor X)
 def dL_dth(z):
     '''[h^-1 Mpc]/radian, from Furlanetto et al. (2006)'''
     return 1.9 * (1./a.const.arcmin) * ((1+z) / 10.)**.2
 
-#Multiply by this to convert a bandwidth in GHz to a line of sight distance in Mpc/h at redshift z
+#Multiply by this to convert a bandwidth in GHz to a line of sight distance in Mpc/h at redshift z  (basically the factor Y)
 def dL_df(z, omega_m=0.266):
     '''[h^-1 Mpc]/GHz, from Furlanetto et al. (2006)'''
     return (1.7 / 0.1) * ((1+z) / 10.)**.5 * (omega_m/0.15)**-0.5 * 1e3
@@ -46,23 +46,22 @@ def dL_df(z, omega_m=0.266):
 #Multiply by this to convert a baseline length in wavelengths (at the frequency corresponding to redshift z) into a tranverse k mode in h/Mpc at redshift z
 def dk_du(z):
     '''2pi * [h Mpc^-1] / [wavelengths], valid for u >> 1.'''
-    return 2*n.pi / dL_dth(z) # from du = 1/dth, which derives from du = d(sin(th)) using the small-angle approx
+    return 2*n.pi / dL_dth(z) # from du = 1/dth, which derives from du = d(sin(th)) using the small-angle approx # 2*pi / X
 
 #Multiply by this to convert eta (FT of freq.; in 1/GHz) to line of sight k mode in h/Mpc at redshift z
 def dk_deta(z):
     '''2pi * [h Mpc^-1] / [GHz^-1]'''
-    return 2*n.pi / dL_df(z)
+    return 2*n.pi / dL_df(z) #2*pi / Y
 
 #scalar conversion between observing and cosmological coordinates
 def X2Y(z):
     '''[h^-3 Mpc^3] / [str * GHz]'''
-    return dL_dth(z)**2 * dL_df(z)
+    return dL_dth(z)**2 * dL_df(z) #X**2 * Y
 
 #A function used for binning
 def find_nearest(array,value):
     idx = (n.abs(array-value)).argmin()
     return idx
-
 
 #====================OBSERVATION/COSMOLOGY PARAMETER VALUES====================
 
@@ -84,7 +83,6 @@ z = f2z(array['freq'])
 
 dish_size_in_lambda = dish_size_in_lambda*(array['freq']/.150) # linear frequency evolution, relative to 150 MHz
 first_null = 1.22/dish_size_in_lambda #for an airy disk, even though beam model is Gaussian
-bm = 1.13*(2.35*(0.45/dish_size_in_lambda))**2
 nchan = opts.nchan
 kpls = dk_deta(z) * n.fft.fftfreq(nchan,B/nchan)
 
@@ -107,10 +105,15 @@ p21 = interpolate.interp1d(mk, mpk, kind='linear')
 
 #=================================MAIN CODE===================================
 
+wl = a.const.c*1e-2 / (array['freq']*1e9)
+Ae = wl**2 / (4*n.pi)
+Vol = X2Y(z) * wl**2 / Ae
+
 #set up blank arrays/dictionaries
 kprs = []
+kvals = []
 #sense will include sample variance, Tsense will be Thermal only
-sense, Tsense = {}, {}
+sense2d, Tsense2d = {}, {}
     
 uv_coverage *= t_int
 SIZE = uv_coverage.shape[0]
@@ -124,54 +127,60 @@ if opts.no_ns: uv_coverage[:,SIZE/2] = 0.
 #loop over uv_coverage to calculate k_pr
 nonzero = n.where(uv_coverage > 0)
 for iu,iv in zip(nonzero[1], nonzero[0]):
-   u, v = (iu - SIZE/2) * dish_size_in_lambda, (iv - SIZE/2) * dish_size_in_lambda
-   umag = n.sqrt(u**2 + v**2)
-   kpr = umag * dk_du(z)
-   kprs.append(kpr)
-   #calculate horizon limit for baseline of length umag
-   if opts.model in ['mod','pess']: hor = dk_deta(z) * umag/array['freq'] + opts.buff
-   elif opts.model in ['opt']: hor = dk_deta(z) * (umag/array['freq'])*n.sin(first_null/2)
-   else: print '%s is not a valid foreground model; Aborting...' % opts.model; sys.exit()
-   if not sense.has_key(kpr): 
-       sense[kpr] = n.zeros_like(kpls)
-       Tsense[kpr] = n.zeros_like(kpls)
-   for i, kpl in enumerate(kpls):
-       #exclude k_parallel modes contaminated by foregrounds
-       if n.abs(kpl) < hor: continue
-       k = n.sqrt(kpl**2 + kpr**2)
-       if k < min(mk): continue
-       #don't include values beyond the interpolation range (no sensitivity anyway)
-       if k > n.max(mk): continue
-       tot_integration = uv_coverage[iv,iu] * opts.ndays
-       delta21 = p21(k)
-       bm2 = bm/2. #beam^2 term calculated for Gaussian; see Parsons et al. 2014
-       bm_eff = bm**2 / bm2 # this can obviously be reduced; it isn't for clarity
-       scalar = X2Y(z) * bm_eff * B * k**3 / (2*n.pi**2)
-       Trms = Tsys / n.sqrt(2*(B*1e9)*tot_integration)
-       #add errors in inverse quadrature
-       sense[kpr][i] += 1./(scalar*Trms**2 + delta21)**2
-       Tsense[kpr][i] += 1./(scalar*Trms**2)**2
+    u, v = (iu - SIZE/2) * dish_size_in_lambda, (iv - SIZE/2) * dish_size_in_lambda
+    umag = n.sqrt(u**2 + v**2)
+    kpr = umag * dk_du(z)
+    kprs.append(kpr)
+    #calculate horizon limit for baseline of length umag
+    if opts.model in ['mod','pess']: hor = dk_deta(z) * umag/array['freq'] + opts.buff
+    elif opts.model in ['opt']: hor = dk_deta(z) * (umag/array['freq'])*n.sin(first_null/2)
+    else: print '%s is not a valid foreground model; Aborting...' % opts.model; sys.exit()
+    if not sense2d.has_key(kpr): 
+        sense2d[kpr] = n.zeros_like(kpls)
+        Tsense2d[kpr] = n.zeros_like(kpls)
+    for i, kpl in enumerate(kpls):
+        if n.abs(kpl) < hor: continue #exclude k_parallel modes contaminated by foregrounds
+        k = n.sqrt(kpl**2 + kpr**2)
+        if k < min(mk): continue
+        if k > n.max(mk): continue #don't include values beyond the interpolation range (no sensitivity anyway)
+	kvals.append(k)
+        tot_integration = uv_coverage[iv,iu] * opts.ndays
+	delta21 = p21(k)
+	ncov = (wl**2 * B * Tsys / Ae)**2 / (2 * B * tot_integration) * 1e9
+	svcov = delta21 * wl**2 * B**2 * 2*n.pi**2 / (X2Y(z) * k**3 * Ae) * 1e18
+	scalar = X2Y(z) * Ae * k**3 / (2*n.pi**2 * wl**2 * B**2 * 1e18)
+	#add errors in inverse quadrature
+        sense2d[kpr][i] += 1./(scalar * (ncov + svcov))**2
+        Tsense2d[kpr][i] += 1./(scalar * ncov)**2
 
 #bin the result in 1D
 delta = dk_deta(z)*(1./B) #default bin size is given by bandwidth
 kmag = n.arange(delta,n.max(mk),delta)
+deltakpl = kpls[1]
 
+def Nc(_k):
+    return 2*n.pi*_k * Vol/(2*n.pi)**3 * delta * deltakpl
+
+kvals = n.array(kvals)
 kprs = n.array(kprs)
 sense1d = n.zeros_like(kmag)
 Tsense1d = n.zeros_like(kmag)
-for ind, kpr in enumerate(sense.keys()):
+for ind, kpr in enumerate(sense2d.keys()):
     #errors were added in inverse quadrature, now need to invert and take square root to have error bars; also divide errors by number of indep. fields
-    sense[kpr] = sense[kpr]**-.5 / n.sqrt(n_lstbins)
-    Tsense[kpr] = Tsense[kpr]**-.5 / n.sqrt(n_lstbins)
+    sense2d[kpr] = sense2d[kpr]**-.5 / n.sqrt(n_lstbins)
+    Tsense2d[kpr] = Tsense2d[kpr]**-.5 / n.sqrt(n_lstbins)
     for i, kpl in enumerate(kpls):
         k = n.sqrt(kpl**2 + kpr**2)
-        if k > n.max(mk): continue
+        if k > n.max(mk): continue 
         #add errors in inverse quadrature for further binning
-        sense1d[find_nearest(kmag,k)] += 1./sense[kpr][i]**2
-        Tsense1d[find_nearest(kmag,k)] += 1./Tsense[kpr][i]**2
+	ii = find_nearest(kmag,k)
+	if (2 * n.pi / (k * (kpl/k))) < dL_df(z): Nc1 = Nc(_k = kmag[ii])
+	else: Nc1 = 0
+        sense1d[ii] += 1./(1./n.sqrt(Nc1) * sense2d[kpr][i])**2
+        Tsense1d[ii] += 1./(1./n.sqrt(Nc1) * Tsense2d[kpr][i])**2
 
 #invert errors and take square root again for final answer
-for ind,kbin in enumerate(sense1d):
+for ind, kbin in enumerate(sense1d):
     sense1d[ind] = kbin**-.5
     Tsense1d[ind] = Tsense1d[ind]**-.5
 
@@ -179,7 +188,7 @@ for ind,kbin in enumerate(sense1d):
 power = p21(kmag)
 
 #save results to output npz
-n.savez('%s_%s_%.3f.npz' % (name,opts.model,array['freq']), ks=kmag, errs=sense1d, T_errs=Tsense1d, ps21=power)
+n.savez('%s_%s_%.3f_mcquinn.npz' % (name,opts.model,array['freq']), ks=kmag, errs=sense1d, T_errs=Tsense1d, ps21=power)
 
 #calculate significance with least-squares fit of amplitude
 A = p21(kmag)

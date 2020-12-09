@@ -4,6 +4,36 @@ Developer: Jonathan Pober (jpober <at> uw <dot> edu).
 
 ===============================================================================
 
+This code has been modified by Pallav Chanda (pallav16 <at> iiserb <dot> ac <dot> in) during a summer internship at IIT Indore under the guidance of Abhirup Datta (abhirup <dot> datta <at> iiti <dot> ac <dot> in)
+
+The work involves understanding the code, upgrading the dependencies, increasing its efficiency, adding new funtions and more. Please read project_report.pdf to understand how to run the code. It also contains more details about the new fuctions and the changes.
+
+DO THE FOLLOWING TO RUN:
+
+python fast_mk_array_file.py -C calibration\ files/hera127
+This generates an array file for calc_sense. Change calibration file as needed.
+(Do not run mk_array_file as it uses bits out of deprecated numpy and may not work.)
+
+python calc_sense.py [*.npz] OR modified_calc_sense.py [*.npz]
+Calculates sensitivity
+([*.npz] is name of generated array file from fast_mk_array_file.py)
+(Result stored in another array file)
+
+python plot_sense.py [*.npz]
+Image of the calculated sensitivity and saves a .csv file for the same.
+([*.npz] is name of earlier generated array file from calc_sense.py)
+
+modified_calc_sense.py implements formulae from McQuinn 2008
+
+KNOWN ISSUES:
+
+plot_sense.py: doesn't change .csv and .png names according to input. (Yet to implement.)
+Do rename both files file manually or it will get replaced in the next run for plot_sense.py
+
+modified_calc_sense.py: gives error for Signal to Noise Ratio (SNR) calculation. But that happens after the .npz file is saved. (Yet to fix.) Typically SNR comes around 3.9 with this modified code with default values and no specified options.
+
+===============================================================================
+
 Dependencies:
 
 numpy
